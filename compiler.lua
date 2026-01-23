@@ -16,6 +16,7 @@ function l_map(fun, li) local dummy = {nil, nil}; local cur = dummy while li do 
 function l_filter(pred, li) local dummy = {nil, nil}; local cur = dummy while li do if pred(li[1]) then cur[2] = {li[1], nil}; cur = cur[2] end; li = li[2] end return dummy[2] end
 function l_foldl(fun, acc, li) while li do acc, li = fun(acc, li[1]), li[2] end return acc end
 function l_rev(li) local rev = nil while li do rev, li = {li[1], rev}, li[2] end return rev end
+function l_range(f,l,s) s = -(s or 1); local r = nil; for i = l,f,s do r = {i,r} end; return r end
 function tblidx(l,i) return l[i] end
 function _export(t,n,v) t[n] = v; return v end
 function putStr(s) return function() print(tostring(s)) ; return s end end
