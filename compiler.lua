@@ -17,6 +17,8 @@ function l_filter(pred, li) local dummy = {nil, nil}; local cur = dummy while li
 function l_foldl(fun, acc, li) while li do acc, li = fun(acc, li[1]), li[2] end return acc end
 function l_rev(li) local rev = nil while li do rev, li = {li[1], rev}, li[2] end return rev end
 function l_range(f,l,s) s = -(s or 1); local r = nil; for i = l,f,s do r = {i,r} end; return r end
+function l_zip(l1, l2) local dummy = {nil, nil}; local cur = dummy; while l1 and l2 do cur[2] = {{l1[1], {l2[1], nil}}, nil}; cur, l1, l2 = cur[2], l1[2], l2[2] end; return dummy[2] end
+function l_unzip(li) local d1, d2 = {nil, nil}, {nil, nil}; local c1, c2 = d1, d2; while li do c1[2], c2[2] = {li[1][1], nil}, {li[1][2][1], nil}; c1, c2, li = c1[2], c2[2], li[2] end; return {d1[2], {d2[2], nil}} end
 function tblidx(l,i) return l[i] end
 function _export(t,n,v) t[n] = v; return v end
 function putStr(s) return function() print(tostring(s)) ; return s end end
