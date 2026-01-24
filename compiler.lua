@@ -11,6 +11,7 @@ function car(l) return l[1] end
 function cdr(l) return l[2] end
 function _ls(...) local args,l = {...},nil for i = #args, 1, -1 do l = {args[i], l} end return l end
 function totbl(l) local t = {} while l ~= nil do t[#t + 1], l = l[1], l[2] end return t end
+function tols(t) return _ls(table.unpack(t)) end
 function at(l,i) if i == 0 then return l[1] end return at(l[2],i - 1) end
 function l_map(fun, li) local dummy = {nil, nil}; local cur = dummy while li do cur[2] = {fun(li[1]), nil}; cur, li = cur[2], li[2] end return dummy[2] end
 function l_filter(pred, li) local dummy = {nil, nil}; local cur = dummy while li do if pred(li[1]) then cur[2] = {li[1], nil}; cur = cur[2] end; li = li[2] end return dummy[2] end
