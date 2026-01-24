@@ -543,9 +543,18 @@ function compiler:_choke(asts)
     elseif t == "operator" then
       local lt = verify(node.left, tenv)
       local rt = verify(node.right, tenv)
-      if not consistent(lt, "N") then error(CompileError(string.format("Type Error: Operator left operand expected N, got %s", lt),find_pos(node.op))) end
-      if not consistent(rt, "N") then error(CompileError(string.format("Type Error: Operator right operand expected N, got %s", rt),find_pos(node.op))) end
-      return "N" 
+      local op = node.op
+      if op == ".." then
+        if not consistent(lt, "S") then  error(CompileError(string.format("Type Error: '++' expects S, got %s", lt), find_pos("++"))) end
+        if not consistent(rt, "S") then  error(CompileError(string.format("Type Error: '++' expects S, got %s", rt), find_pos("++"))) end
+        return "S"
+      elseif op == "==" or op == "~=" or op == "<" or op == ">" or op == "<=" or op == ">=" then return "B"
+      elseif op == "and" or op == "or" then return "B"
+      else
+        if not consistent(lt, "N") then  error(CompileError(string.format("Type Error: Math op expects N, got %s", lt), find_pos(op))) end
+        if not consistent(rt, "N") then  error(CompileError(string.format("Type Error: Math op expects N, got %s", rt), find_pos(op))) end
+        return "N"
+      end
     elseif t == "match" then
       for _, tgt in ipairs(node.targets) do verify(tgt, tenv) end
       local case = node.cases
