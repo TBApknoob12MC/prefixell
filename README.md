@@ -14,7 +14,7 @@ Prefixell is a functional programming language that compiles to Lua. It features
 - **Gradual Typing (I, guess?)**: Compile-time type "choking"
 - **Pattern Matching**: Powerful pattern matching with guards
 - **Monadic Operations**: Support for monadic bind (`>>=`) and do-notation
-- **Lisp-like Syntax**: Prefix notation similar to Lisp (bruh)
+- **Lisp + haskell like Syntax**: Prefix notation similar to Lisp (bruh), mainly inspired by haskell (bruh x2)
 - **Lua Interoperability**: Compiles directly to Lua code
 
 ## Installation
@@ -70,7 +70,7 @@ fn inc \x : (+ x 1)
 ### Function Application
 Functions are applied by juxtaposition(the what lmao.Search it in google):
 ```
-inc 5
+inc 5 ;;
 (\x y : (+ x y)) 3 4
 ```
 
@@ -186,26 +186,25 @@ The compiler provides many built-in functions:
 
 ### Simple Function
 ```
-type double N : N
+type double N : N ;;
 fn double \x : (* x 2)
 ```
 
 ### List Processing
 ```
-let numbers ([1 2 3 4 5]) :
-((l_map (\x : (* x 2)) numbers) |> totbl)
+let numbers ([1 2 3 4 5]) : ((l_map (\x : (* x 2)) numbers) |> totbl)
 ```
 
 ### Fibonacci Sequence
 ```
-fn fib \n : (if (<=n 1) n (+ (fib (- n 1)) (fib (- n 2))))
+fn fib \n : (if (<= n 1) n (+ (fib (- n 1)) (fib (- n 2))))
 ```
 
 ### Pattern Matching Example
 ```
 fn describe \x : (match x [
   0 => "zero" ;
-  x | (x < 0) => "negative" ;
+  n | (< n 0) => "negative" ;
   _ => "positive"
   ])
 ```

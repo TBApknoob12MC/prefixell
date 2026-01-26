@@ -88,7 +88,11 @@ function compiler:_tokenize(input)
         line = line + 1
         col = 1
       else i = #input + 1 end
-    elseif c:match('[\\:%(%)%[%]{}]') then
+    elseif input:sub(i, i + 1) == ";;" then
+      table.insert(tokens, {value = ";;", line = line, col = col})
+      i = i + 2
+      col = col + 2
+    elseif c:match('[\\:%(%)%[%]{};]') then
       table.insert(tokens, {value = c, line = line, col = col})
       i = i + 1
       col = col + 1
@@ -259,7 +263,7 @@ function compiler:_parse_atom(state)
       consume(state)
       local action = self:_parse_expression(state, true)
       if not action then error(CompileError("Expected action after '<-'", var_tok.line, var_tok.col)) end
-      if peek_value(state) == ";" then consume(state) end
+      if peek_value(state) == ";" or peek_value(state) == ";;" then consume(state) end
       local callback = ASTFunction({var_name}, parse_do_chain())
       return ASTCall(ASTIdentifier("_bind"), {action, callback},t.line,t.col)
     end
@@ -357,7 +361,7 @@ function compiler:_parse_expression(state, no_call)
     local args = {}
     while not at_end(state) do
       local t = peek_value(state)
-      if not t or t == ")" or t == "]" or t == "}" or t == ";" or  t == "fn" or t == "let" or t == "|>" or self.op_table[t] then break end
+      if not t or t == ")" or t == "]" or t == "}" or t == ";;" or t == ";" or  t == "fn" or t == "let" or t == "|>" or self.op_table[t] then break end
       local arg = self:_parse_expression(state, true)
       if arg then table.insert(args, arg) else break end
     end
@@ -370,7 +374,7 @@ function compiler:_parse_expression(state, no_call)
   local args = {}
   while not at_end(state) do
     local t = peek_value(state)
-    if not t or t == ")" or t == "]" or t == "}" or t == ";" or t == "fn"  or t == "let" or t == "|>" or t == ">>=" or self.op_table[t] then  break  end
+    if not t or t == ")" or t == "]" or t == "}" or t == ";;" or t == ";" or t == "fn"  or t == "let" or t == "|>" or t == ">>=" or self.op_table[t] then  break  end
     local arg = self:_parse_expression(state, true)
     if arg then table.insert(args, arg) else break end
   end
@@ -586,11 +590,12 @@ function compiler:compile(input)
     while not at_end(state) do
       local ast = self:_parse_expression(state)
       if ast then table.insert(asts, ast) else break end
+      while peek_value(state) == ";;" do consume(state) end 
     end
     self:_choke(asts)
     local out = {}
     for _, a in ipairs(asts) do if a.type ~= "typesig" then table.insert(out, self:_ast_to_lua(a, false)) end end
-    return table.concat(out, "\n")
+    return table.concat(out, ";\n") .. "\n"
   end)
   if not success then return nil, format_error(result, input) end
   return result, nil
