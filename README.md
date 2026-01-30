@@ -48,6 +48,39 @@ In the REPL, you can:
 - Type `:q` to quit
 - Type `:d` to toggle debug mode (shows generated Lua code)
 
+## Quickstart
+
+Let's write a Hello, World! program:
+
+```
+print "Hello, World!"
+```
+
+That's it? The haskellers will start to scream like I just did a war crime.
+
+So here is the haskellers approved version of it:
+
+```
+fn main do [ finish (putStr "Hello, World!") ] ;;
+fcall main
+```
+
+Trust me, it's superior /j.
+
+Let's make an 'add 1' program:
+
+```
+fn main do [
+inputnum <- (fcall getLine) ;
+add_one <- (pure (+ (tonumber inputnum) 1)) ;
+finish (putStr add_one)
+] ;;
+fcall main
+]
+```
+
+now try compiling deez programs.
+
 ## Language Syntax
 
 ### Basic Types
@@ -154,7 +187,7 @@ use "path/to/module"
 
 The compiler provides many built-in functions:
 
-- `pure x` - Creates a constant function
+### List Operations
 - `cons h t` - Creates a list node
 - `car li` - Gets the head of a list
 - `cdr li` - Gets the tail of a list
@@ -168,14 +201,22 @@ The compiler provides many built-in functions:
 - `l_range first last step` - Creates a range list
 - `l_zip li1 li2` - Zips two lists
 - `l_unzip li` - Unzips a zipped list
+
+### Table Operations
 - `tdump tbl` - Dumps a table as string
 - `tblidx tbl idx` - Indexes into a table
+
+### IO Operations
 - `putStr str` - Prints a string
 - `getLine` - Reads a line from stdin
 - `writeFile path content` - Writes content to file
 - `appendFile path content` - Appends content to file
 - `readFile path` - Reads content from file
+
+### Functional Utilities
+- `pure x` - Creates a constant function
 - `fcall fun` - Calls a function
+- `>>=` - Monadic bind operator
 
 ## Examples
 
