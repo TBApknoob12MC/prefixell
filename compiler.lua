@@ -20,7 +20,7 @@ function l_rev(li) local rev = nil while li do rev, li = {li[1], rev}, li[2] end
 function l_range(f,l,s) s = -(s or 1); local r = nil; for i = l,f,s do r = {i,r} end; return r end
 function l_zip(l1, l2) local dummy = {nil, nil}; local cur = dummy; while l1 and l2 do cur[2] = {{l1[1], {l2[1], nil}}, nil}; cur, l1, l2 = cur[2], l1[2], l2[2] end; return dummy[2] end
 function l_unzip(li) local d1, d2 = {nil, nil}, {nil, nil}; local c1, c2 = d1, d2; while li do c1[2], c2[2] = {li[1][1], nil}, {li[1][2][1], nil}; c1, c2, li = c1[2], c2[2], li[2] end; return {d1[2], {d2[2], nil}} end
-function tdump(t) local res, stack = "", {{t, 1}} while #stack > 0 do local top = stack[#stack] local curr, i = top[1], top[2] if i == 1 then res = res .. "{" end if i <= #curr then local val = curr[i]; top[2] = i + 1; if type(val) == "table" then table.insert(stack, {val, 1}) else res = res .. tostring(val) .. (i < #curr and ", " or "") end else res = res .. "}"; table.remove(stack); if #stack > 0 then local p = stack[#stack]; if p[2] <= #p[1] then res = res .. ", " end end end end return res end
+function tdump(t) local res, stack = "", {{t, nil}} while #stack > 0 do local top = stack[#stack] local curr, key = top[1], top[2] local next_key, val = next(curr, key) if key == nil then res = res .. "{" end if next_key ~= nil then top[2] = next_key; if type(next_key) == "string" then res = res .. next_key .. " = " end if type(val) == "table" then table.insert(stack, {val, nil}) else local s_val = type(val) == "string" and '"'..val..'"' or tostring(val) res = res .. s_val .. (next(curr, next_key) and ", " or "") end else res = res .. "}"; table.remove(stack); if #stack > 0 then local p = stack[#stack]; if next(p[1], p[2]) then res = res .. ", " end end end end return res end
 function tblidx(l,i) return l[i] end
 function _export(t,n,v) t[n] = v; return v end
 function putStr(s) return function() print(tostring(s)) ; return s end end
@@ -370,7 +370,7 @@ function compiler:_parse_expression(state, no_call)
   while peek_value(state) == "|>" do
   consume(state)
   local next_node = self:_parse_atom(state)
-  if not next_node then  error(CompileError("Expected function after '>>'", state.tokens[state.ptr].line, state.tokens[state.ptr].col))  end
+  if not next_node then  error(CompileError("Expected function after '|>'", state.tokens[state.ptr].line, state.tokens[state.ptr].col))  end
   local args = {}
   while not at_end(state) do
     local t = peek_value(state)

@@ -1,6 +1,6 @@
 # prefixell (+ λ)° : functional language that compiles to lua
 
-![Logo](https://github.com/TBApknoob12MC/prefixell/raw/main/logo.png)
+![Logo](https://github.com/TBApknoob12MC/prefixell/raw/main/img/logo.png)
 
 ---
 
