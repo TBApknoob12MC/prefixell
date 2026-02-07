@@ -46,7 +46,7 @@ local function format_error(err, source)
   return tostring(err)
 end
 
-function compiler.new() return setmetatable({}, compiler) end
+function compiler.new() return setmetatable({macro_list={}}, compiler) end
 
 function compiler:_tokenize(input)
   local tokens = {}
@@ -247,6 +247,15 @@ function compiler:_parse_atom(state)
     end
     expect(state, "}", "table")
     return {type = "table", elements = elements}
+  elseif tv == "def" then
+    consume(state)
+    local mname = consume(state).value
+    local params = {}
+    while peek_value(state) ~= "as" do table.insert(params, consume(state).value) end
+    expect(state, "as", "macro definition")
+    local body = self:_parse_expression(state, true)
+    self.macro_list[mname] = { params = params, body = body }
+    return {type="macrodef"}
   elseif tv == "do" then
     local do_tok = consume(state)
     if peek_value(state) == "[" then consume(state) end
@@ -355,42 +364,58 @@ function compiler:_parse_atom(state)
 end
 
 function compiler:_parse_expression(state, no_call)
+  local t = peek(state)
+  if t and self.macro_list[t.value] then
+    local m = self.macro_list[consume(state).value]
+    local args = {}
+    for i = 1, #m.params do table.insert(args, self:_parse_expression(state, true)) end
+    local function substitute(node)
+      if not node or type(node) ~= "table" then return node end
+      local target = node
+      if node.type == "identifier" then for i, p in ipairs(m.params) do if p == node.name then  target = args[i]; break  end end end
+      local new_node = {}
+      for k, v in pairs(target) do if k == "next" and v ~= nil then new_node[k] = substitute(v) elseif type(v) == "table" and k ~= "fn" and k ~= "args" and k ~= "left" and k ~= "right" then new_node[k] = substitute(v) else new_node[k] = v end end
+      if target.left then new_node.left = substitute(target.left) end
+      if target.right then new_node.right = substitute(target.right) end
+      if target.args then new_node.args = {}; for i, arg in ipairs(target.args) do new_node.args[i] = substitute(arg) end end
+      if target.fn then new_node.fn = substitute(target.fn) end
+      new_node.line, new_node.col = target.line or t.line,target.col or t.col
+      return new_node
+    end
+    local atom = substitute(m.body)
+    if no_call then return atom end
+    return self:_parse_call_chain(state, atom)
+  end
   local atom = self:_parse_atom(state)
   if not atom then return nil end
-  if not no_call then
-    local args = {}
-    while not at_end(state) do
-      local t = peek_value(state)
-      if not t or t == ")" or t == "]" or t == "}" or t == ";;" or t == ";" or  t == "fn" or t == "let" or t == "|>" or self.op_table[t] then break end
-      local arg = self:_parse_expression(state, true)
-      if arg then table.insert(args, arg) else break end
-    end
-    if #args > 0 then atom = ASTCall(atom, args,atom.line,atom.col) end
+  if no_call then return atom end
+  return self:_parse_call_chain(state, atom)
+end
+
+function compiler:_parse_call_chain(state, atom)
+  local args = {}
+  while not at_end(state) do
+    local t = peek_value(state)
+    if not t or t == ")" or t == "]" or t == "}" or t == ";;" or t == ";" or t == "fn" or t == "let" or t == "|>" or self.op_table[t] then break end
+    local arg = self:_parse_expression(state, true)
+    if arg then table.insert(args, arg) else break end
   end
+  if #args > 0 then atom = ASTCall(atom, args, atom.line, atom.col) end
   while peek_value(state) == "|>" do
     consume(state)
     local next_node = self:_parse_atom(state)
-    if not next_node then  error(CompileError("Expected function after '|>'", state.tokens[state.ptr].line, state.tokens[state.ptr].col))  end
-    local args,placeholder_index = {},nil
+    local c_args, p_idx = {}, nil
     while not at_end(state) do
       local t = peek_value(state)
-      if not t or t == ")" or t == "]" or t == "}" or t == ";;" or t == ";" or t == "fn" or t == "let" or t == "|>" or t == ">>=" or self.op_table[t] then  break  end
-      if t == "_" then
-        consume(state)
-        table.insert(args, "__PLACEHOLDER__")
-        placeholder_index = #args
+      if not t or t == ")" or t == "]" or t == "}" or t == ";;" or t == ";" or t == "fn" or t == "let" or t == "|>" or t == ">>=" or self.op_table[t] then break end
+      if t == "_" then consume(state); table.insert(c_args, "__PLACEHOLDER__"); p_idx = #c_args
       else
         local arg = self:_parse_expression(state, true)
-        if arg then table.insert(args, arg) else break end
+        if arg then table.insert(c_args, arg) else break end
       end
     end
-    if placeholder_index then
-      args[placeholder_index] = atom
-      atom = ASTCall(next_node, args, next_node.line, next_node.col)
-    else
-      table.insert(args, atom)
-      atom = ASTCall(next_node, args, next_node.line, next_node.col)
-    end
+    if p_idx then c_args[p_idx] = atom else table.insert(c_args, atom) end
+    atom = ASTCall(next_node, c_args, next_node.line, next_node.col)
   end
   return atom
 end
@@ -483,6 +508,8 @@ function compiler:_ast_to_lua(node, is_tail)
   elseif t == "fndef" then
     local val = self:_ast_to_lua(node.value, false)
     return node.name .. " = " .. val
+  elseif t == "macrodef" then
+    return ""
   elseif t == "paren" then
     return "( "..self:_ast_to_lua(node.body,is_tail).." )"
   else error("Unknown AST node type: " .. t) end
@@ -596,8 +623,7 @@ end
 
 function compiler:_preprocess(input, seen_files)
   seen_files = seen_files or {}
-  local output = {}
-  local line_num = 1
+  local output,line_num = {},1
   for line_text in (input .. "\n"):gmatch("(.-)\r?\n") do
     local path = line_text:match("^%s*include%s+([^%s;]+)%s*;;")
     if path then if seen_files[path] then error(CompileError("Circular include detected: " .. path, line_num, 1)) end

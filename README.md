@@ -192,6 +192,19 @@ include path/to/file.lc ;;
 
 This reads `file.lc` and replaces that `include` block with its content.
 
+### Macros
+
+Macros are kind of like compile-time functions.
+
+It gets replaced with its body at compile-time.
+
+```
+def a_macro arg1 arg2 as (+ arg1 arg2) ;;
+a_macro 1 2 -- becomes (+ 1 2) at compile time
+```
+
+The only problem with macros are that if there is error, it won't give line and column numbers.
+
 ## Built-in Functions
 
 The compiler provides many built-in functions:
