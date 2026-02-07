@@ -183,6 +183,15 @@ Import modules:
 use "path/to/module"
 ```
 
+### Including other source code files
+
+To include another prefixell source file in current program:
+```
+include path/to/file.lc ;;
+```
+
+This reads `file.lc` and replaces that `include` block with its content.
+
 ## Built-in Functions
 
 The compiler provides many built-in functions:

@@ -368,18 +368,30 @@ function compiler:_parse_expression(state, no_call)
     if #args > 0 then atom = ASTCall(atom, args,atom.line,atom.col) end
   end
   while peek_value(state) == "|>" do
-  consume(state)
-  local next_node = self:_parse_atom(state)
-  if not next_node then  error(CompileError("Expected function after '|>'", state.tokens[state.ptr].line, state.tokens[state.ptr].col))  end
-  local args = {}
-  while not at_end(state) do
-    local t = peek_value(state)
-    if not t or t == ")" or t == "]" or t == "}" or t == ";;" or t == ";" or t == "fn"  or t == "let" or t == "|>" or t == ">>=" or self.op_table[t] then  break  end
-    local arg = self:_parse_expression(state, true)
-    if arg then table.insert(args, arg) else break end
+    consume(state)
+    local next_node = self:_parse_atom(state)
+    if not next_node then  error(CompileError("Expected function after '|>'", state.tokens[state.ptr].line, state.tokens[state.ptr].col))  end
+    local args,placeholder_index = {},nil
+    while not at_end(state) do
+      local t = peek_value(state)
+      if not t or t == ")" or t == "]" or t == "}" or t == ";;" or t == ";" or t == "fn" or t == "let" or t == "|>" or t == ">>=" or self.op_table[t] then  break  end
+      if t == "_" then
+        consume(state)
+        table.insert(args, "__PLACEHOLDER__")
+        placeholder_index = #args
+      else
+        local arg = self:_parse_expression(state, true)
+        if arg then table.insert(args, arg) else break end
+      end
+    end
+    if placeholder_index then
+      args[placeholder_index] = atom
+      atom = ASTCall(next_node, args, next_node.line, next_node.col)
+    else
+      table.insert(args, atom)
+      atom = ASTCall(next_node, args, next_node.line, next_node.col)
+    end
   end
-  if #args > 0 then table.insert(args, atom); atom = ASTCall(next_node, args, next_node.line, next_node.col) else atom = ASTCall(next_node, {atom}, next_node.line, next_node.col) end
-end
   return atom
 end
 
@@ -582,8 +594,30 @@ function compiler:_choke(asts)
   for _, node in ipairs(asts) do verify(node, {}) end
 end
 
+function compiler:_preprocess(input, seen_files)
+  seen_files = seen_files or {}
+  local output = {}
+  local line_num = 1
+  for line_text in (input .. "\n"):gmatch("(.-)\r?\n") do
+    local path = line_text:match("^%s*include%s+([^%s;]+)%s*;;")
+    if path then if seen_files[path] then error(CompileError("Circular include detected: " .. path, line_num, 1)) end
+      local f = io.open(path, "r")
+      if not f then error(CompileError("Could not open include file: " .. path, line_num, 1)) end
+      local content = f:read("*a")
+      f:close()
+      seen_files[path] = true
+      local processed_content = self:_preprocess(content, seen_files)
+      seen_files[path] = nil
+      table.insert(output, processed_content)
+    else table.insert(output, line_text) end
+    line_num = line_num + 1
+  end
+  return table.concat(output, "\n").." ;;" or ""
+end
 function compiler:compile(input)
-  self.tokens = self:_tokenize(input)
+  local pre_success,pre_result = pcall (function() return self:_preprocess(input) end)
+  if not pre_success then return nil, format_error(pre_result,input) end
+  input = pre_result; self.tokens = self:_tokenize(input)
   local state = { tokens = self.tokens, ptr = 1, source = input }
   local success, result = pcall(function()
     local asts = {}
