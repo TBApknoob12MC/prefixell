@@ -46,7 +46,8 @@ local function format_error(err, source)
   return tostring(err)
 end
 
-function compiler.new() return setmetatable({macro_list={}}, compiler) end
+function compiler.new() return setmetatable({macro_list={},gemsym_id=0}, compiler) end
+function compiler:gensym(base) self.gensym_id = self.gensym_id + 1; return (base or "_g") .. "__" .. self.gensym_id end
 
 function compiler:_tokenize(input)
   local tokens = {}
@@ -363,28 +364,93 @@ function compiler:_parse_atom(state)
   end
 end
 
+function compiler:_hygienic_expand(macro, args)
+  local introduced = {}
+  local param_set = {}
+  for _, p in ipairs(macro.params) do param_set[p] = true end
+  local function clone(t)
+    local n = {}
+    for k, v in pairs(t) do n[k] = v end
+    return n
+  end
+  local function expand(node, env)
+    if not node or type(node) ~= "table" then return node end
+    env = env or {}
+    if node.type == "identifier" then
+      for i, p in ipairs(macro.params) do if node.name == p then return args[i] end end
+      if env[node.name] then return { type = "identifier", name = env[node.name], line = node.line, col = node.col } end
+      return node
+    end
+    if node.type == "let" then
+      local new_env = clone(env)
+      local fresh = introduced[node.var]
+      if not fresh then
+        fresh = self:gensym(node.var)
+        introduced[node.var] = fresh
+      end
+      new_env[node.var] = fresh
+      return { type = "let", var = fresh, value = expand(node.value, env), body = expand(node.body, new_env) }
+    end
+    if node.type == "function" then
+      local new_env = clone(env)
+      local new_params = {}
+      for _, p in ipairs(node.params) do
+        local fresh = introduced[p]
+        if not fresh then
+          fresh = self:gensym(p)
+          introduced[p] = fresh
+        end
+        new_env[p] = fresh
+        table.insert(new_params, fresh)
+      end
+      return { type = "function", params = new_params, body = expand(node.body, new_env), line = node.line, col = node.col }
+    end
+    if node.type == "match" then
+      local new_cases = nil
+      local last = nil
+      local function expand_case(case)
+        if not case then return nil end
+        local new_env = clone(env)
+        local new_patterns = {}
+        for _, p in ipairs(case.patterns) do
+          if p ~= "_" then
+            local fresh = introduced[p]
+            if not fresh then
+              fresh = self:gensym(p)
+              introduced[p] = fresh
+            end
+            new_env[p] = fresh
+            table.insert(new_patterns, fresh)
+          else table.insert(new_patterns, "_") end
+        end
+        local c = { patterns = new_patterns, guard = case.guard and expand(case.guard, new_env), result = expand(case.result, new_env), next = nil }
+        c.next = expand_case(case.next)
+        return c
+      end
+      return { type = "match", targets = (function()
+          local t = {}
+          for i, v in ipairs(node.targets) do t[i] = expand(v, env) end
+          return t
+        end)(),
+        cases = expand_case(node.cases)
+      }
+    end
+    local new_node = {}
+    for k, v in pairs(node) do if type(v) == "table" then new_node[k] = expand(v, env) else new_node[k] = v end end
+    return new_node
+  end
+  return expand(macro.body, {})
+end
+
 function compiler:_parse_expression(state, no_call)
   local t = peek(state)
   if t and self.macro_list[t.value] then
     local m = self.macro_list[consume(state).value]
     local args = {}
     for i = 1, #m.params do table.insert(args, self:_parse_expression(state, true)) end
-    local function substitute(node)
-      if not node or type(node) ~= "table" then return node end
-      local target = node
-      if node.type == "identifier" then for i, p in ipairs(m.params) do if p == node.name then  target = args[i]; break  end end end
-      local new_node = {}
-      for k, v in pairs(target) do if k == "next" and v ~= nil then new_node[k] = substitute(v) elseif type(v) == "table" and k ~= "fn" and k ~= "args" and k ~= "left" and k ~= "right" then new_node[k] = substitute(v) else new_node[k] = v end end
-      if target.left then new_node.left = substitute(target.left) end
-      if target.right then new_node.right = substitute(target.right) end
-      if target.args then new_node.args = {}; for i, arg in ipairs(target.args) do new_node.args[i] = substitute(arg) end end
-      if target.fn then new_node.fn = substitute(target.fn) end
-      new_node.line, new_node.col = target.line or t.line,target.col or t.col
-      return new_node
-    end
-    local atom = substitute(m.body)
-    if no_call then return atom end
-    return self:_parse_call_chain(state, atom)
+    local expanded = self:_hygienic_expand(m, args)
+    if no_call then return expanded end
+    return self:_parse_call_chain(state, expanded)
   end
   local atom = self:_parse_atom(state)
   if not atom then return nil end
