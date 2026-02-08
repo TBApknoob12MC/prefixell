@@ -46,7 +46,7 @@ local function format_error(err, source)
   return tostring(err)
 end
 
-function compiler.new() return setmetatable({macro_list={},gemsym_id=0}, compiler) end
+function compiler.new() return setmetatable({macro_list={},gensym_id=0}, compiler) end
 function compiler:gensym(base) self.gensym_id = self.gensym_id + 1; return (base or "_g") .. "__" .. self.gensym_id end
 
 function compiler:_tokenize(input)
@@ -255,7 +255,7 @@ function compiler:_parse_atom(state)
     while peek_value(state) ~= "as" do table.insert(params, consume(state).value) end
     expect(state, "as", "macro definition")
     local body = self:_parse_expression(state, true)
-    self.macro_list[mname] = { params = params, body = body }
+    self.macro_list[mname] = { params = params, body = body, line = t.line, col = t.col}
     return {type="macrodef"}
   elseif tv == "do" then
     local do_tok = consume(state)
@@ -365,80 +365,110 @@ function compiler:_parse_atom(state)
 end
 
 function compiler:_hygienic_expand(macro, args)
-  local introduced = {}
-  local param_set = {}
-  for _, p in ipairs(macro.params) do param_set[p] = true end
   local function clone(t)
     local n = {}
     for k, v in pairs(t) do n[k] = v end
     return n
   end
+
   local function expand(node, env)
     if not node or type(node) ~= "table" then return node end
-    env = env or {}
+
+    local line = (type(node.line) == "number") and node.line or macro.line
+    local col = (type(node.col) == "number") and node.col or macro.col
+
     if node.type == "identifier" then
-      for i, p in ipairs(macro.params) do if node.name == p then return args[i] end end
-      if env[node.name] then return { type = "identifier", name = env[node.name], line = node.line, col = node.col } end
-      return node
+      for i, p in ipairs(macro.params) do
+        if node.name == p then
+          local arg_clone = {}
+          for k, v in pairs(args[i]) do arg_clone[k] = v end
+          arg_clone.line, arg_clone.col = line, col
+          return arg_clone
+        end
+      end
+      return { 
+        type = "identifier", 
+        name = env[node.name] or node.name, 
+        line = line, 
+        col = col 
+      }
     end
+
     if node.type == "let" then
       local new_env = clone(env)
-      local fresh = introduced[node.var]
-      if not fresh then
-        fresh = self:gensym(node.var)
-        introduced[node.var] = fresh
-      end
+      local fresh = self:gensym(node.var)
       new_env[node.var] = fresh
-      return { type = "let", var = fresh, value = expand(node.value, env), body = expand(node.body, new_env) }
+      return {
+        type = "let",
+        var = fresh,
+        value = expand(node.value, env),
+        body = expand(node.body, new_env),
+        line = line,
+        col = col
+      }
     end
+
     if node.type == "function" then
       local new_env = clone(env)
       local new_params = {}
       for _, p in ipairs(node.params) do
-        local fresh = introduced[p]
-        if not fresh then
-          fresh = self:gensym(p)
-          introduced[p] = fresh
-        end
+        local fresh = self:gensym(p)
         new_env[p] = fresh
         table.insert(new_params, fresh)
       end
-      return { type = "function", params = new_params, body = expand(node.body, new_env), line = node.line, col = node.col }
+      return {
+        type = "function",
+        params = new_params,
+        body = expand(node.body, new_env),
+        line = line,
+        col = col
+      }
     end
+
     if node.type == "match" then
-      local new_cases = nil
-      local last = nil
       local function expand_case(case)
         if not case then return nil end
         local new_env = clone(env)
         local new_patterns = {}
         for _, p in ipairs(case.patterns) do
-          if p ~= "_" then
-            local fresh = introduced[p]
-            if not fresh then
-              fresh = self:gensym(p)
-              introduced[p] = fresh
-            end
+          local is_lit = tonumber(p) or p:match('^".*"$') or p == "true" or p == "false" or p == "_"
+          if not is_lit then
+            local fresh = self:gensym(p)
             new_env[p] = fresh
             table.insert(new_patterns, fresh)
-          else table.insert(new_patterns, "_") end
+          else
+            table.insert(new_patterns, p)
+          end
         end
-        local c = { patterns = new_patterns, guard = case.guard and expand(case.guard, new_env), result = expand(case.result, new_env), next = nil }
-        c.next = expand_case(case.next)
-        return c
+        return {
+          patterns = new_patterns,
+          guard = expand(case.guard, new_env),
+          result = expand(case.result, new_env),
+          next = expand_case(case.next)
+        }
       end
-      return { type = "match", targets = (function()
+      return {
+        type = "match",
+        targets = (function()
           local t = {}
           for i, v in ipairs(node.targets) do t[i] = expand(v, env) end
           return t
         end)(),
-        cases = expand_case(node.cases)
+        cases = expand_case(node.cases),
+        line = line,
+        col = col
       }
     end
-    local new_node = {}
-    for k, v in pairs(node) do if type(v) == "table" then new_node[k] = expand(v, env) else new_node[k] = v end end
+
+    local new_node = { line = line, col = col }
+    for k, v in pairs(node) do
+      if k ~= "line" and k ~= "col" then
+        new_node[k] = (type(v) == "table") and expand(v, env) or v
+      end
+    end
     return new_node
   end
+
   return expand(macro.body, {})
 end
 
@@ -704,7 +734,7 @@ function compiler:_preprocess(input, seen_files)
     else table.insert(output, line_text) end
     line_num = line_num + 1
   end
-  return table.concat(output, "\n").." ;;" or ""
+  return table.concat(output, "\n") or ""
 end
 function compiler:compile(input)
   local pre_success,pre_result = pcall (function() return self:_preprocess(input) end)
