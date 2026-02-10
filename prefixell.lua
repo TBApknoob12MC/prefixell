@@ -69,10 +69,65 @@ elseif arg[1] == "r" then
       end
     end
   end
+elseif arg[1] == "build" then
+  local cfg_path = "cfg.lc.lua"
+  local cfg_func, err = loadfile(cfg_path)
+  if not cfg_func then
+    print("Could not find " .. cfg_path)
+    os.exit(1)
+  end
+  local cfg,target = cfg_func(),arg[2]
+  local function run_target(target_name)
+    local t = cfg.targets[target_name]
+    if not t then return end
+    if t.prerun then for _, pre in ipairs(t.prerun) do run_target(pre) end end
+    for _, cmd in ipairs(t) do
+      if type(cmd) == "string" then
+        print("Running: " .. cmd)
+        local success = os.execute(cmd)
+        if not success then os.exit(1) end
+      end
+    end
+  end
+  if target and cfg.targets and cfg.targets[target] then run_target(target)
+  else
+    local seen, building = {}, {}
+    local function build_file(file, is_entry)
+      is_entry = is_entry or false
+      if seen[file] then return end
+      if building[file] then error("Circular dependency: " .. file) end
+      building[file] = true
+      local out_path = file:gsub("%.lc$", ".lua")
+      local f_lc, open_err = io.open(file, "r")
+      if not f_lc then error("Could not open " .. file .. ": " .. tostring(open_err)) end
+      local content = f_lc:read("*a")
+      f_lc:close()
+      print("Building: " .. file)
+      local lua_code, c_err = comp:compile(content)
+      if not c_err then
+        local out, out_err = io.open(out_path, "w")
+        if not out then error("Could not open " .. out_path .. ": " .. tostring(out_err)) end
+        out:write((is_entry and (prefixell.init_code .. "\n") or "") .. lua_code)
+        out:close()
+      else error("Error in " .. file .. ":\n" .. c_err) end
+      building[file] = nil
+      seen[file] = true
+    end
+    local function process_deps(deps) for key, value in pairs(deps) do if type(key) == "string" then process_deps(value); build_file(key) elseif type(value) == "table" then process_deps(value) else build_file(value) end end end
+    local status, build_err = pcall(function()
+      if cfg.dep_list then process_deps(cfg.dep_list) end
+      if cfg.entry then build_file(cfg.entry, true) end
+    end)
+    if not status then
+      print("Build failed: " .. tostring(build_err))
+      os.exit(1)
+    end
+  end
 else
   print([[
 prefixell cli:
   c <input.lc> <output.lua> -> compile source to lua
-  r <optional_entry.lc>    -> read-eval-print-loop
+  r <optional_entry.lc> -> read-eval-print-loop
+  build <target: optional> -> build the project based on cfg.lc.lua,or run the given target
   ]])
 end

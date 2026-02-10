@@ -240,6 +240,39 @@ The compiler provides many built-in functions:
 - `fcall fun` - Calls a function
 - `>>=` - Monadic bind operator
 
+## Build System
+
+If you ever wanted to automate compiling multiple files, IN A JOKE LANGUAGE,there is a make but worse thing.
+
+First, create a `cfg.lc.lua` file in your project:
+
+```lua
+return {
+  entry = "main.lc", -- the name of your main file
+  dep_list = { -- dependencies
+    ["dep1.lc"] = {
+      "dep1dep1.lc",
+      "dep1dep2.lc"
+    },
+    "dep2.lc"
+  },
+  targets = { -- targets
+    run = {
+    prerun = {"clean","build"}, -- runs other targets before running this target
+    "lua5.2 main.lua"
+    },
+    build = {"lua5.2 prefixell.lua build"},
+    clean = {"rm dep1dep1.lua dep1dep2.lua dep1.lua dep2.lua main.lua"}
+  }
+}
+```
+
+now if you run `prefixell.lua build`, it will compile deeper deps first, and finally the entry file.
+
+If a target like `prefixell.lua build run` is given, it will execute the target's command instead of compiling the project.
+
+If there is `prerun` for a target, it will run those targets first and then runs current.
+
 ## Examples
 
 ### Hello World
