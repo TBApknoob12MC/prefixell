@@ -76,7 +76,11 @@ elseif arg[1] == "build" then
     print("Could not find " .. cfg_path)
     os.exit(1)
   end
-  local cfg,target = cfg_func(),arg[2]
+  local cfg, target = cfg_func(), arg[2]
+  local function get_output_path(file)
+    if cfg.outputs and cfg.outputs[file] then return cfg.outputs[file] end
+    return file:gsub("%.lc$", ".lua")
+  end
   local function run_target(target_name)
     local t = cfg.targets[target_name]
     if not t then return end
@@ -97,21 +101,20 @@ elseif arg[1] == "build" then
       if seen[file] then return end
       if building[file] then error("Circular dependency: " .. file) end
       building[file] = true
-      local out_path = file:gsub("%.lc$", ".lua")
+      local out_path = get_output_path(file)
       local f_lc, open_err = io.open(file, "r")
       if not f_lc then error("Could not open " .. file .. ": " .. tostring(open_err)) end
       local content = f_lc:read("*a")
       f_lc:close()
-      print("Building: " .. file)
+      print("Building: " .. file .. " -> " .. out_path)
       local lua_code, c_err = comp:compile(content)
       if not c_err then
         local out, out_err = io.open(out_path, "w")
         if not out then error("Could not open " .. out_path .. ": " .. tostring(out_err)) end
         out:write((is_entry and (prefixell.init_code .. "\n") or "") .. lua_code)
         out:close()
-      else error("Error in " .. file .. ":\n" .. c_err) end
-      building[file] = nil
-      seen[file] = true
+      else error("Error in " .. file .. ":\n" .. c_err)  end
+      building[file], seen[file] = nil, true
     end
     local function process_deps(deps) for key, value in pairs(deps) do if type(key) == "string" then process_deps(value); build_file(key) elseif type(value) == "table" then process_deps(value) else build_file(value) end end end
     local status, build_err = pcall(function()

@@ -256,6 +256,9 @@ return {
     },
     "dep2.lc"
   },
+  outputs = { -- specify output name mapping. otherwise, file.lc -> file.lua 
+    ["dep2.lc"] = "newname.lua"
+  },
   targets = { -- targets
     run = {
     prerun = {"clean","build"}, -- runs other targets before running this target
