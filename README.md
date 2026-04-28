@@ -19,34 +19,54 @@ Prefixell is a functional programming language that compiles to Lua. It features
 
 ## Installation
 
-1. Clone the repository:
+1. Make sure you have Lua and Git installed on your System
+
+2. Clone the repository:
 ```bash
 git clone https://github.com/TBApknoob12MC/prefixell
 ```
 
-2. Make sure you have Lua installed on your system
+3. Change to that dir and use the install script:
+```bash
+cd prefixell
+lua install.lua
+```
 
 ## Usage
 
 ### Compilation Mode
 ```bash
-lua(5.2+) prefixell.lua c input.lc output.lua
+prefixell c input.lc output.lua
 ```
 Compiles `input.lc` to `output.lua`.
 
 ### REPL Mode
 ```bash
-lua(5.2+) prefixell.lua r
+prefixell r
 ```
 Starts the interactive REPL. You can also load an entry file:
 ```bash
-lua(5.2+) prefixell.lua r entry.lc
+prefixell r entry.lc
 ```
 
 In the REPL, you can:
 - Enter expressions to evaluate them
 - Type `:q` to quit
 - Type `:d` to toggle debug mode (shows generated Lua code)
+
+### Package Manager
+
+To install a package to `pkgs` folder + build if it has a `cfg.lc.lua` file:
+```bash
+prefixell pkg add provider_shorthand:user/repo@branch
+```
+
+Here, the available provider shorthands are: gh(github), gl(gitlab), and cb(codeberg). Giving a branch is optional.
+
+The same goes for `pkg dl`, if you don't want for the package to be built automatically (for non-prefixell pkgs: lua projects etc.)
+```bash
+prefixell pkg dl provider_shorthand:user/repo@branch
+```
 
 ## Quickstart
 
@@ -240,13 +260,14 @@ The compiler provides many built-in functions:
 - `fcall fun` - Calls a function
 - `>>=` - Monadic bind operator
 
-## Build System
+## Build System & Package Manager
 
-If you ever wanted to automate compiling multiple files, IN A JOKE LANGUAGE,there is a make but worse thing.
+If you ever wanted to automate compiling multiple files, IN A JOKE LANGUAGE,there is a make/npm but worse thing.
 
-First, create a `cfg.lc.lua` file in your project:
+First, create a `cfg.lc.lua` file in your project with `prefixell init`.
 
 ```lua
+-- example config format
 return {
   entry = "main.lc", -- the name of your main file
   dep_list = { -- dependencies
@@ -259,22 +280,33 @@ return {
   outputs = { -- specify output name mapping. otherwise, file.lc -> file.lua 
     ["dep2.lc"] = "newname.lua"
   },
+  pkgs = { -- packages that will be installed when pkg sync is done
+    add = { -- prefixell packages that will automatically be built if cfg.lc.lua found
+      "gh:usr/repo",
+      "gl:user/repository@dev"
+    },
+    dl = { -- packages that will just be downloaded - non-prefixell (lua etc.) pkgs go here
+      "cb:cool-guy/random-lua-proj"
+    }
+  }
   targets = { -- targets
     run = {
     prerun = {"clean","build"}, -- runs other targets before running this target
-    "lua5.2 main.lua"
+    "lua main.lua"
     },
-    build = {"lua5.2 prefixell.lua build"},
+    build = {"lua prefixell.lua build"},
     clean = {"rm dep1dep1.lua dep1dep2.lua dep1.lua dep2.lua main.lua"}
   }
 }
 ```
 
-now if you run `prefixell.lua build`, it will compile deeper deps first, and finally the entry file.
+now if you run `prefixell build`, it will compile deeper deps first, and finally the entry file.
 
-If a target like `prefixell.lua build run` is given, it will execute the target's command instead of compiling the project.
+If a target like `prefixell build run` is given, it will execute the target's command instead of compiling the project.
 
 If there is `prerun` for a target, it will run those targets first and then runs current.
+
+The package manager will install everything specified in the cfg when someone runs `prefixell pkg sync`
 
 ## Examples
 

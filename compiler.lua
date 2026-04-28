@@ -4,6 +4,8 @@ compiler.__index = compiler
 compiler.op_table, compiler.env = { ["+"] = "+", ["-"] = "-", ["*"] = "*", ["/"] = "/", ["^"] = "^",["%"] ="%", ["++"] = "..", ["=="] = "==", ["!="] = "~=", [">"] = ">", ["<"] = "<", ["<="] = "<=", [">="] = ">=", ["and"] = "and", ["or"] = "or" },{}
 
 compiler.init_code = [[
+pkg_sep = package.config:sub(1,1)
+package.path = "pkgs"..pkg_sep.."?"..pkg_sep.."?.lua;pkgs" .. pkg_sep .. "?" .. pkg_sep .. "init.lua;pkgs" .. pkg_sep .. "?.lua;?.lua;?/init.lua;".. package.path
 function pure(x) return function() return x end end
 function _bind(v,f) return function() local val = v() if val == nil then return nil end return f(val)() end end
 function cons(h,t) return {h,t} end
