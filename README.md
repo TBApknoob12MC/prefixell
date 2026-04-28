@@ -96,7 +96,6 @@ add_one <- (pure (+ (tonumber inputnum) 1)) ;
 finish (putStr add_one)
 ] ;;
 fcall main
-]
 ```
 
 now try compiling deez programs.
