@@ -68,6 +68,10 @@ The same goes for `pkg dl`, if you don't want for the package to be built automa
 prefixell pkg dl provider_shorthand:user/repo@branch
 ```
 
+If you want to install globally, use `-g` flag : `prefixell pkg add -g <pkg>`
+
+You can use direct links (you can select branches here too!) to the git repo: `prefixell pkg add http://mygitrepo.example/repo@branch`
+
 ## Quickstart
 
 Let's write a Hello, World! program:
@@ -349,6 +353,8 @@ fn fib \n a b : (match n [
 ```
 ## License
 
-MPL-2.0
+installation script (install.lua) is under MIT (Expat) license (See install.lua for license)
+
+Everything else is licensed under MPL-2.0 (See LICENSE)
 
 ---

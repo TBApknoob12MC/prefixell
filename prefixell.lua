@@ -129,13 +129,25 @@ elseif arg[1] == "build" then
     end
   end
 elseif arg[1] == "pkg" then
-  local action,pkg_path,pkgs_dir = arg[2],arg[3],"pkgs"
+  local function get_global_dir()
+    if is_windows then local base = os.getenv("LOCALAPPDATA") or (os.getenv("USERPROFILE") .. "\\AppData\\Local"); return base .. "\\prefixell\\pkgs" end
+    local base = os.getenv("XDG_DATA_HOME")
+    if not base or base == "" then base = (os.getenv("HOME") or "") .. "/.local/share" end
+    return base .. "/prefixell/pkgs"
+  end
+  local global_pkgs_dir = get_global_dir():gsub("[\\/]+", is_windows and "\\" or "/")
+  local is_global = false ; for _,v in ipairs(arg) do if v == "-g" or v == "--global" then is_global = true end end
+  local action,pkg_path,pkgs_dir = arg[2],arg[3],(is_global and global_pkgs_dir or "pkgs")
   local function check_git()
     local success = os.execute("git --version > " .. (package.config:sub(1,1) == "\\" and "nul" or "/dev/null") .. " 2>&1")
     if not success then print("Error: 'git' is not installed or not in PATH. Please install Git to use pkg features.") os.exit(1) end
   end
   local function parse_url(input)
     local host_map = { gh = "github.com", gl = "gitlab.com", cb = "codeberg.org" }
+    if input:find("^https?://") or input:find("^git:@") then
+      local url_part, branch = input:match("([^@]+)@?([^@]*)")
+      return url_part, (branch ~= "" and branch or nil)
+    end
     local prefix, path = input:match("^(%w+):(.+)$")
     if prefix and host_map[prefix] then
       local repo, branch = path:match("([^@]+)@?([^@]*)")
@@ -145,16 +157,16 @@ elseif arg[1] == "pkg" then
   end
   local function download_pkg(url, branch,should_build)
     check_git()
-    local name = url:match("([^/]+)$"):gsub("%.git$", "")
+    local name = url:gsub("/+$",""):match("([^/]+)$"):gsub("%.git$", "")
     local target = pkgs_dir .. "/" .. name
     print("Cloning " .. url .. " into " .. target .. "...")
-    local cmd = string.format("git clone --depth 1 %s %s %s 2> %s || (cd %s && git pull)", branch and ("-b " .. branch) or "",  url, target,(package.config:sub(1,1) == "\\" and "nul" or "/dev/null"),target)
+    local cmd = string.format("git clone --depth 1 %s %s %s 2> %s || git -C %s pull", branch and ("-b " .. branch) or "",  url, target,(is_windows and "nul" or "/dev/null"),target)
     if os.execute(cmd) then
       print("Successfully downloaded: " .. name)
       if should_build and io.open(target .. "/cfg.lc.lua", "r") then
         print("Prefixell project detected. Building...")
         print("Build package " .. name .. "? (y/n)")
-        if io.read() ~= "y" then return end
+        if io.read():sub(1,1):lower() ~= "y" then return end
         os.execute("cd " .. target .. " && prefixell build")
       end
       return name
@@ -165,7 +177,7 @@ elseif arg[1] == "pkg" then
   end
   if action == "add" or action == "dl" then
     if not pkg_path then print("Usage: pkg " .. action .. " <url|shorthand>") os.exit(1) end
-    os.execute((is_windows and "mkdir "..pkgs_dir.."2>nul") or "mkdir -p " .. pkgs_dir)
+    os.execute((is_windows and "mkdir "..pkgs_dir.." 2>nul") or "mkdir -p " .. pkgs_dir)
     local url, branch = parse_url(pkg_path)
     local name = download_pkg(url, branch,action == "add")
     if name then print("\nRemember to add '" .. name .. "' to 'pkgs' list in cfg.lc.lua or ur finished") end
@@ -178,11 +190,21 @@ elseif arg[1] == "pkg" then
       if cfg.pkgs.dl then for _, p in ipairs(cfg.pkgs.dl) do local url, branch = parse_url(p); download_pkg(url, branch,false) end end
     end
   else
-    print([[
-prefixell package manager:
-  add <provider: gh|gl|cb>:user/name[@branch :optional] -> download package from provider and build it if its a prefixell project
-  dl <provider: gh|gl|cb>:user/name[@branch :optional] -> just download
-  sync -> downloads (and build if specified) packages stated in cfg.lc.lua]])
+print([[
+prefixell package manager
+Usage: prefixell pkg [option] <action> <url|shorthand>
+Options:
+  -g or --global -> Use global directory (]] .. global_pkgs_dir .. [[)
+Actions:
+  add  <id>[@branch: optional] -> Download and build if it's a prefixell project
+  dl   <id>[@branch: optional] -> Download only (no build)
+  sync -> Download/build packages defined in cfg.lc.lua
+Identifiers (<id>):
+  gh:user/repo -> GitHub
+  gl:user/repo -> GitLab
+  cb:user/repo -> Codeberg
+  https://url/repo -> Full Git URL
+]])
   end
 elseif arg[1] == "init" then
   local cfg = io.open("cfg.lc.lua","w")

@@ -4,8 +4,15 @@ compiler.__index = compiler
 compiler.op_table, compiler.env = { ["+"] = "+", ["-"] = "-", ["*"] = "*", ["/"] = "/", ["^"] = "^",["%"] ="%", ["++"] = "..", ["=="] = "==", ["!="] = "~=", [">"] = ">", ["<"] = "<", ["<="] = "<=", [">="] = ">=", ["and"] = "and", ["or"] = "or" },{}
 
 compiler.init_code = [[
-pkg_sep = package.config:sub(1,1)
-package.path = "pkgs"..pkg_sep.."?"..pkg_sep.."?.lua;pkgs" .. pkg_sep .. "?" .. pkg_sep .. "init.lua;pkgs" .. pkg_sep .. "?.lua;?.lua;?/init.lua;".. package.path
+is_windows = package.config:sub(1,1) == "\\"
+local function get_global_dir()
+  if is_windows then local base = os.getenv("LOCALAPPDATA") or (os.getenv("USERPROFILE") .. "\\AppData\\Local"); return base .. "\\prefixell\\pkgs" end
+  local base = os.getenv("XDG_DATA_HOME")
+  if not base or base == "" then base = (os.getenv("HOME") or "") .. "/.local/share" end
+  return base .. "/prefixell/pkgs"
+end
+local global_pkgs_dir = get_global_dir():gsub("[\\/]+", is_windows and "\\" or "/")
+package.path = "pkgs/?/?.lua;pkgs/?/init.lua;pkgs/?.lua;"..global_pkgs_dir.."/?/?.lua;"..global_pkgs_dir.."/?.lua;"..global_pkgs_dir.."/?/init.lua;?/?.lua;?.lua;?/init.lua;".. package.path
 function pure(x) return function() return x end end
 function _bind(v,f) return function() local val = v() if val == nil then return nil end return f(val)() end end
 function cons(h,t) return {h,t} end
