@@ -21,13 +21,22 @@ end
 local is_win = package.config:sub(1,1) == "\\"
 local lua_bin = arg[-1]
 local cwd = io.popen(is_win and "cd" or "pwd"):read("*l")
-local src = cwd .. "/prefixell.lua"
+local src = cwd .. (is_win and "\\" or "/").."prefixell.lua"
 if is_win then
-  local dest = os.getenv("USERPROFILE") .. "\\prefixell.bat"
+  local user_prof = os.getenv("USERPROFILE")
+  local dest = user_prof.."\\prefixell.bat"
   local f = io.open(dest, "w")
   f:write("@echo off\n\"" .. lua_bin .. "\" \"" .. src .. "\" %*")
   f:close()
-  print("Installed: " .. dest)
+  local cur_path = os.getenv("PATH") or ""
+  if not cur_path:find(user_prof,1,true) then
+    os.execute('setx PATH "%PATH%;'..user_prof..'"')
+    print("Installed: " .. dest)
+    print("PATH updated. RESTART terminal to prefixell it")
+  else
+    print("Installed: "..dest)
+    print("U can now prefixell it (USERPROFILE: "..user_prof.." already in PATH)")
+  end
 else
   local bin_dir = os.getenv("HOME") .. "/.local/bin"
   os.execute("mkdir -p " .. bin_dir)
