@@ -136,7 +136,7 @@ elseif arg[1] == "pkg" then
     return base .. "/prefixell/pkgs"
   end
   local global_pkgs_dir = get_global_dir():gsub("[\\/]+", is_windows and "\\" or "/")
-  local is_global = false ; for _,v in ipairs(arg) do if v == "-g" or v == "--global" then is_global = true end end
+  local is_global,add_to_cfg = false, true ; for _,v in ipairs(arg) do if v == "-g" or v == "--global" then is_global = true end if v == "-p" or v == "--prevent-add" then add_to_cfg = false end end
   local action,pkg_path,pkgs_dir = arg[2],arg[3],(is_global and global_pkgs_dir or "pkgs")
   local function check_git()
     local success = os.execute("git --version > " .. (package.config:sub(1,1) == "\\" and "nul" or "/dev/null") .. " 2>&1")
@@ -180,7 +180,20 @@ elseif arg[1] == "pkg" then
     os.execute((is_windows and "mkdir "..pkgs_dir.." 2>nul") or "mkdir -p " .. pkgs_dir)
     local url, branch = parse_url(pkg_path)
     local name = download_pkg(url, branch,action == "add")
-    if name then print("\nRemember to add '" .. name .. "' to 'pkgs' list in cfg.lc.lua or ur finished") end
+    if name and add_to_cfg and not is_global then
+      local f = io.open("cfg.lc.lua","r")
+      if f then 
+        local content = f:read("*a"); f:close()
+        local target_key = (action == "add") and "add" or "dl"
+        if not content:find(string.format("%q",pkg_path)) then
+          local nc,count = content:gsub(target_key.."%s*=%s*{",target_key.."= { "..string.format("%q",pkg_path)..", ")
+          if count > 0 then
+            local out = io.open("cfg.lc.lua","w"); out:write(nc); out:close()
+            print("Added '" .. pkg_path .. "' to cfg.lc.lua (" .. target_key .. ")")
+          else print("Warning: Could not automatically update cfg.lc.lua (table not found).") end
+        else print("Note: Package already exists in cfg.lc.lua.") end
+      end
+    end
   elseif action == "sync" then
     local cfg_func = loadfile("cfg.lc.lua")
     if not cfg_func then print("cfg.lc.lua not found.") os.exit(1) end
@@ -195,6 +208,7 @@ prefixell package manager
 Usage: prefixell pkg [option] <action> <url|shorthand>
 Options:
   -g or --global -> Use global directory (]] .. global_pkgs_dir .. [[)
+  -p or --prevent-add -> prevent auto insert of package data into cfg.lc.lua in pkg add or pkg dl
 Actions:
   add  <id>[@branch: optional] -> Download and build if it's a prefixell project
   dl   <id>[@branch: optional] -> Download only (no build)
@@ -207,10 +221,13 @@ Identifiers (<id>):
 ]])
   end
 elseif arg[1] == "init" then
+  print("Name of entry file (type main.lc for default): "); local entry = io.read()
+  print("config:\nentry file: "..entry.."\nConfirm (y/n): "); local confirm = io.read():sub(1,1):lower() == "y"
+  if not confirm then print("Cancelling init") os.exit(1) end
   local cfg = io.open("cfg.lc.lua","w")
   cfg:write([[
 return {
-  entry = "main.lc",
+  entry = "]]..(entry or "main.lc" )..[[",
   dep_list = {},
   outputs = {},
   pkgs = { 

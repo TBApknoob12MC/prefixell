@@ -271,7 +271,7 @@ The compiler provides many built-in functions:
 
 If you ever wanted to automate compiling multiple files, IN A JOKE LANGUAGE,there is a make/npm but worse thing.
 
-First, create a `cfg.lc.lua` file in your project with `prefixell init`.
+First, create a `cfg.lc.lua` file in your project with `prefixell init` and type the name of entry file.
 
 ```lua
 -- example config format
