@@ -29,7 +29,7 @@ function l_rev(li) local rev = nil while li do rev, li = {li[1], rev}, li[2] end
 function l_range(f,l,s) s = -(s or 1); local r = nil; for i = l,f,s do r = {i,r} end; return r end
 function l_zip(l1, l2) local dummy = {nil, nil}; local cur = dummy; while l1 and l2 do cur[2] = {{l1[1], {l2[1], nil}}, nil}; cur, l1, l2 = cur[2], l1[2], l2[2] end; return dummy[2] end
 function l_unzip(li) local d1, d2 = {nil, nil}, {nil, nil}; local c1, c2 = d1, d2; while li do c1[2], c2[2] = {li[1][1], nil}, {li[1][2][1], nil}; c1, c2, li = c1[2], c2[2], li[2] end; return {d1[2], {d2[2], nil}} end
-function tdump(t) local res, stack = "", {{t, nil}} while #stack > 0 do local top = stack[#stack] local curr, key = top[1], top[2] local next_key, val = next(curr, key) if key == nil then res = res .. "{" end if next_key ~= nil then top[2] = next_key; if type(next_key) == "string" then res = res .. next_key .. " = " end if type(val) == "table" then table.insert(stack, {val, nil}) else local s_val = type(val) == "string" and '"'..val..'"' or tostring(val) res = res .. s_val .. (next(curr, next_key) and ", " or "") end else res = res .. "}"; table.remove(stack); if #stack > 0 then local p = stack[#stack]; if next(p[1], p[2]) then res = res .. ", " end end end end return res end
+function tdump(t) local res,stack="",{{t,nil,0}} while #stack>0 do local top=stack[#stack];local curr,key,depth=top[1],top[2],top[3];local n_key,val=next(curr,key) if key==nil then res=res.."{\n" end if n_key~=nil then top[2]=n_key;local ind=string.rep("  ",depth+1) res=res..ind if type(n_key)=="number" then elseif type(n_key)=="string" and n_key:match("^[a-zA-Z_][a-zA-Z0-9_]*$") then res=res..n_key.." = " else res=res.."["..(type(n_key)=="string" and '"'..n_key..'"' or tostring(n_key)).."] = " end if type(val)=="table" then table.insert(stack,{val,nil,depth+1}) else res=res..(type(val)=="string" and '"'..val..'"' or tostring(val))..",\n" end else res=res..string.rep("  ",depth).."}"..(#stack>1 and "," or "").."\n" table.remove(stack) end end return res end
 function tblidx(l,i) return l[i] end
 function _export(t,n,v) t[n] = v; return v end
 function putStr(s) return function() print(tostring(s)) ; return s end end
@@ -374,18 +374,11 @@ function compiler:_parse_atom(state)
 end
 
 function compiler:_hygienic_expand(macro, args)
-  local function clone(t)
-    local n = {}
-    for k, v in pairs(t) do n[k] = v end
-    return n
-  end
-
+  local function clone(t) local n = {}; for k, v in pairs(t) do n[k] = v end; return n end
   local function expand(node, env)
     if not node or type(node) ~= "table" then return node end
-
     local line = (type(node.line) == "number") and node.line or macro.line
     local col = (type(node.col) == "number") and node.col or macro.col
-
     if node.type == "identifier" then
       for i, p in ipairs(macro.params) do
         if node.name == p then
@@ -395,28 +388,14 @@ function compiler:_hygienic_expand(macro, args)
           return arg_clone
         end
       end
-      return { 
-        type = "identifier", 
-        name = env[node.name] or node.name, 
-        line = line, 
-        col = col 
-      }
+      return { type = "identifier", name = env[node.name] or node.name, line = line, col = col }
     end
-
     if node.type == "let" then
       local new_env = clone(env)
       local fresh = self:gensym(node.var)
       new_env[node.var] = fresh
-      return {
-        type = "let",
-        var = fresh,
-        value = expand(node.value, env),
-        body = expand(node.body, new_env),
-        line = line,
-        col = col
-      }
+      return { type = "let", var = fresh, value = expand(node.value, env), body = expand(node.body, new_env), line = line, col = col }
     end
-
     if node.type == "function" then
       local new_env = clone(env)
       local new_params = {}
@@ -425,15 +404,8 @@ function compiler:_hygienic_expand(macro, args)
         new_env[p] = fresh
         table.insert(new_params, fresh)
       end
-      return {
-        type = "function",
-        params = new_params,
-        body = expand(node.body, new_env),
-        line = line,
-        col = col
-      }
+      return { type = "function", params = new_params, body = expand(node.body, new_env), line = line, col = col }
     end
-
     if node.type == "match" then
       local function expand_case(case)
         if not case then return nil end
@@ -445,39 +417,16 @@ function compiler:_hygienic_expand(macro, args)
             local fresh = self:gensym(p)
             new_env[p] = fresh
             table.insert(new_patterns, fresh)
-          else
-            table.insert(new_patterns, p)
-          end
+          else table.insert(new_patterns, p) end
         end
-        return {
-          patterns = new_patterns,
-          guard = expand(case.guard, new_env),
-          result = expand(case.result, new_env),
-          next = expand_case(case.next)
-        }
+        return { patterns = new_patterns, guard = expand(case.guard, new_env), result = expand(case.result, new_env), next = expand_case(case.next) }
       end
-      return {
-        type = "match",
-        targets = (function()
-          local t = {}
-          for i, v in ipairs(node.targets) do t[i] = expand(v, env) end
-          return t
-        end)(),
-        cases = expand_case(node.cases),
-        line = line,
-        col = col
-      }
+      return { type = "match", targets = (function() local t = {}; for i, v in ipairs(node.targets) do t[i] = expand(v, env) end; return t end)(), cases = expand_case(node.cases), line = line, col = col }
     end
-
     local new_node = { line = line, col = col }
-    for k, v in pairs(node) do
-      if k ~= "line" and k ~= "col" then
-        new_node[k] = (type(v) == "table") and expand(v, env) or v
-      end
-    end
+    for k, v in pairs(node) do if k ~= "line" and k ~= "col" then new_node[k] = (type(v) == "table") and expand(v, env) or v end end
     return new_node
   end
-
   return expand(macro.body, {})
 end
 
