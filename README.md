@@ -8,6 +8,10 @@
 
 Prefixell is a functional programming language that compiles to Lua. It features a Lisp-like syntax with prefix notation, gradual typing, pattern matching, and monadic operations. The language is a joke.
 
+I was trying to make a simple lambda calculus compiler (lambcalc: .lc came from here hehe) and it turned into this madness.
+
+It was made for fun and can break unpredictably so please don't use it for your top secret government project use brainf*ck instead /j.
+
 ## Features
 
 - **Functional Programming**: First-class functions, immutability(fake), and higher-order functions
