@@ -208,7 +208,7 @@ elseif arg[1] == "pkg" then
       local pref_dir = pkgs_dir..sep..n
       local i_cmd = "cd '"..pref_dir.."' && lua install.lua"
       print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") end
-    else print("use with -g flag: ' prefixell pkg self -g '") end
+    else print("use with -g flag: ' prefixell pkg self-up -g '") end
   else
 print([[
 prefixell package manager
