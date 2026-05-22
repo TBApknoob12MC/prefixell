@@ -167,7 +167,7 @@ elseif arg[1] == "pkg" then
         print("Prefixell project detected. Building...")
         print("Build package " .. name .. "? (y/n)")
         if io.read():sub(1,1):lower() ~= "y" then return end
-        os.execute("cd " .. target .. " && prefixell build")
+        os.execute("cd '" .. target .. "' && prefixell build")
       end
       return name
     else
