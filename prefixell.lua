@@ -1,5 +1,5 @@
 package.path =(arg[0]:match("@?(.*[/\\])") or "./").."?.lua;"..package.path
-local is_windows = package.config:sub(1,1) == "\\"
+local sep = package.config:sub(1,1); local is_windows = sep == "\\"
 local prefixell = require('compiler')
 local comp = prefixell:new()
 
@@ -50,7 +50,7 @@ elseif arg[1] == "r" then
     if comp_err then print(comp_err) else run_lua(lua_code, show_p) end
   end
   while true do
-    io.write("> ")
+    io.write("> ") io.flush()
     local repl_inp = io.read()
     if not repl_inp or repl_inp == ":q" then break end
     if repl_inp == ":h" then
@@ -202,6 +202,13 @@ elseif arg[1] == "pkg" then
       if cfg.pkgs.add then for _, p in ipairs(cfg.pkgs.add) do local url, branch = parse_url(p); download_pkg(url, branch,true) end end
       if cfg.pkgs.dl then for _, p in ipairs(cfg.pkgs.dl) do local url, branch = parse_url(p); download_pkg(url, branch,false) end end
     end
+  elseif action == "self-up" then
+    if is_global then
+      local n = download_pkg("https://github.com/TBApknoob12MC/prefixell",nil,false)
+      local pref_dir = pkgs_dir..sep..n
+      local i_cmd = "cd '"..pref_dir.."' && lua install.lua"
+      print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") end
+    else print("use with -g flag: ' prefixell pkg self -g '") end
   else
 print([[
 prefixell package manager
@@ -213,6 +220,7 @@ Actions:
   add  <id>[@branch: optional] -> Download and build if it's a prefixell project
   dl   <id>[@branch: optional] -> Download only (no build)
   sync -> Download/build packages defined in cfg.lc.lua
+  self-up -g -> update prefixell itself
 Identifiers (<id>):
   gh:user/repo -> GitHub
   gl:user/repo -> GitLab

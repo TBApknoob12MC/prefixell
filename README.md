@@ -36,6 +36,14 @@ cd prefixell
 lua install.lua
 ```
 
+restart shell to be able to use the `prefixell` command
+
+4. Now, we will install prefixell using itself:
+```bash
+prefixell pkg self-up -g
+```
+use the same command to update prefixell
+
 ## Usage
 
 ### Compilation Mode
