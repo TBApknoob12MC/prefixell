@@ -205,8 +205,8 @@ elseif arg[1] == "pkg" then
   elseif action == "self-up" then
     if is_global then
       local n = download_pkg("https://github.com/TBApknoob12MC/prefixell",nil,false)
-      local pref_dir = pkgs_dir..sep..n
-      local i_cmd = "cd '"..pref_dir.."' && lua install.lua"
+      local pref_dir = (pkgs_dir..sep..n):gsub("[\\/]+",(is_windows and "\\") or "/")
+      local i_cmd = (is_windows and 'cd /d "'..pref_dir..'" && "'..(os.getenv("PREFIXELL_LUA") or "lua")..'" install.lua') or "cd \""..pref_dir.."\" && "..(os.getenv("PREFIXELL_LUA") or "lua").." install.lua"
       print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") end
     else print("use with -g flag: ' prefixell pkg self-up -g '") end
   else
