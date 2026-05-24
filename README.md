@@ -82,7 +82,7 @@ The same goes for `pkg dl`, if you don't want for the package to be built automa
 prefixell pkg dl provider_shorthand:user/repo@branch
 ```
 
-If you want to install globally, use `-g` flag : `prefixell pkg add -g <pkg>`
+If you want to install globally, use `-g` flag : `prefixell pkg add <pkg> -g`
 
 You can use direct links (you can select branches here too!) to the git repo: `prefixell pkg add http://mygitrepo.example/repo@branch`
 
