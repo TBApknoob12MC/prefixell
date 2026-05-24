@@ -155,10 +155,10 @@ elseif arg[1] == "pkg" then
     end
     return input, nil
   end
-  local function download_pkg(url, branch,should_build)
+  local function download_pkg(url, branch,should_build,target)
     check_git()
     local name = url:gsub("/+$",""):match("([^/]+)$"):gsub("%.git$", "")
-    local target = pkgs_dir .. "/" .. name
+     target = target or (pkgs_dir .. sep .. name)
     print("Cloning " .. url .. " into " .. target .. "...")
     local cmd = string.format("git clone --depth 1 %s %s %s 2> %s || git -C %s pull", branch and ("-b " .. branch) or "",  url, target,(is_windows and "nul" or "/dev/null"),target)
     if os.execute(cmd) then
@@ -179,7 +179,7 @@ elseif arg[1] == "pkg" then
     if not pkg_path then print("Usage: pkg " .. action .. " <url|shorthand>") os.exit(1) end
     os.execute((is_windows and "mkdir "..pkgs_dir.." 2>nul") or "mkdir -p " .. pkgs_dir)
     local url, branch = parse_url(pkg_path)
-    local name = download_pkg(url, branch,action == "add")
+    local name = download_pkg(url, branch,action == "add",nil)
     if name and add_to_cfg and not is_global then
       local f = io.open("cfg.lc.lua","r")
       if f then 
@@ -199,16 +199,25 @@ elseif arg[1] == "pkg" then
     if not cfg_func then print("cfg.lc.lua not found.") os.exit(1) end
     local cfg = cfg_func()
     if cfg.pkgs then
-      if cfg.pkgs.add then for _, p in ipairs(cfg.pkgs.add) do local url, branch = parse_url(p); download_pkg(url, branch,true) end end
-      if cfg.pkgs.dl then for _, p in ipairs(cfg.pkgs.dl) do local url, branch = parse_url(p); download_pkg(url, branch,false) end end
+      if cfg.pkgs.add then for _, p in ipairs(cfg.pkgs.add) do local url, branch = parse_url(p); download_pkg(url, branch,true,nil) end end
+      if cfg.pkgs.dl then for _, p in ipairs(cfg.pkgs.dl) do local url, branch = parse_url(p); download_pkg(url, branch,false,nil) end end
     end
   elseif action == "self-up" then
     if is_global then
-      local n = download_pkg("https://github.com/TBApknoob12MC/prefixell",nil,false)
-      local pref_dir = (pkgs_dir..sep..n):gsub("[\\/]+",(is_windows and "\\") or "/")
-      local i_cmd = (is_windows and 'cd /d "'..pref_dir..'" && "'..(os.getenv("PREFIXELL_LUA") or "lua")..'" install.lua') or "cd \""..pref_dir.."\" && "..(os.getenv("PREFIXELL_LUA") or "lua").." install.lua"
-      print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") end
+      local id = os.time("%m%d-%H%M%S"); local pref_dir = (pkgs_dir..sep.."prefixell-self"..sep..id):gsub("[\\/]+",(is_windows and "\\") or "/")
+      local n = download_pkg("https://github.com/TBApknoob12MC/prefixell",nil,false,pref_dir)
+      local i_cmd = (is_windows and 'cd /d "'..pref_dir..'" && "'..(os.getenv("PREFIXELL_LUA") or "lua")..'" install.lua '..id) or "cd \""..pref_dir.."\" && "..(os.getenv("PREFIXELL_LUA") or "lua").." install.lua "..id
+      print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") else print("Successfully installed") end
     else print("use with -g flag: ' prefixell pkg self-up -g '") end
+  elseif action == "list-self" then if is_global then if not os.execute(is_windows and "dir "..pkgs_dir..sep.."prefixell-self" or "ls "..pkgs_dir..sep.."prefixell-self") then print("something wrong happened while using '"..(is_windows and "dir" or "ls").."'") end else print("use with -g flag: ' prefixell pkg list-self -g '") end print("current prefixell: "..os.getenv("PREFIXELL_ID"))
+  elseif action == "switch" then
+    if is_global then
+      if not arg[3] then print("prefixell folder not specified\nrun 'prefixell list-self -g' and select desired prefixell folder\nusage: prefixell pkg switch <prefixell_folder> -g") os.exit(1) end
+      local pref_dir = (pkgs_dir..sep.."prefixell-self"..sep..arg[3]):gsub("[\\/]+",(is_windows and "\\") or "/")
+      local dir_f = io.open(pref_dir..sep.."install.lua",'r'); if not dir_f then print("prefixell folder '"..arg[3].."' doesn't exist or install.lua is absent") os.exit(1) end dir_f:close()
+      local i_cmd = (is_windows and 'cd /d "'..pref_dir..'" && "'..(os.getenv("PREFIXELL_LUA") or "lua")..'" install.lua '..arg[3]) or "cd \""..pref_dir.."\" && "..(os.getenv("PREFIXELL_LUA") or "lua").." install.lua "..arg[3]
+      print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") else print("Successfully switched from "..os.getenv("PREFIXELL_ID").." to "..arg[3]) end
+    else print("use with -g flag: ' prefixell pkg switch <prefixell_folder> -g '") end
   else
 print([[
 prefixell package manager
@@ -221,6 +230,8 @@ Actions:
   dl   <id>[@branch: optional] -> Download only (no build)
   sync -> Download/build packages defined in cfg.lc.lua
   self-up -g -> update prefixell itself
+  list-self -g -> list downloaded prefixell folders
+  switch <prefixell_folder> -g -> switch to another prefixell folder
 Identifiers (<id>):
   gh:user/repo -> GitHub
   gl:user/repo -> GitLab

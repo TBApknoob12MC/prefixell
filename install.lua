@@ -30,7 +30,7 @@ local src = cwd .. (is_win and "\\" or "/").."prefixell.lua"
 if is_win then
   local user_prof = os.getenv("USERPROFILE")
   local dest = user_prof .. "\\prefixell.bat"
-  local f = io.open(dest, "w"); if f then f:write("@echo off\nset \"PREFIXELL_LUA="..lua_bin.."\"& \"" .. lua_bin .. "\" \"" .. src .. "\" %*") f:close() end
+  local f = io.open(dest, "w"); if f then f:write("@echo off\nset \"PREFIXELL_ID="..(arg[1] or 0).."\"& set \"PREFIXELL_LUA="..lua_bin.."\"& \"" .. lua_bin .. "\" \"" .. src .. "\" %*") f:close() end
   local cur_path = os.getenv("PATH") or ""
   if not cur_path:find(user_prof, 1, true) then
     print("\nUSERPROFILE (" .. user_prof .. ") not in PATH.")
@@ -54,7 +54,7 @@ else
   os.execute("mkdir -p " .. bin_dir)
   local dest = bin_dir .. "/prefixell"
   local f = io.open(dest, "w")
-  f:write("#!/bin/sh\nPREFIXELL_LUA=\""..lua_bin .."\" ".. lua_bin .. " " .. src .. " \"$@\"")
+  f:write("#!/bin/sh\nPREFIXELL_ID=\""..(arg[1] or 0).."\" PREFIXELL_LUA=\""..lua_bin .."\" ".. lua_bin .. " " .. src .. " \"$@\"")
   f:close()
   os.execute("chmod +x " .. dest)
   get_shell_configs()

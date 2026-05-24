@@ -44,6 +44,8 @@ prefixell pkg self-up -g
 ```
 use the same command to update prefixell
 
+jump to [Package Manager](#package-manager) for `list-self`, `switch` and others
+
 ## Usage
 
 ### Compilation Mode
@@ -83,6 +85,10 @@ prefixell pkg dl provider_shorthand:user/repo@branch
 If you want to install globally, use `-g` flag : `prefixell pkg add -g <pkg>`
 
 You can use direct links (you can select branches here too!) to the git repo: `prefixell pkg add http://mygitrepo.example/repo@branch`
+
+If you want to list the downloaded folders of prefixell itself, use `prefixell pkg list-self -g`
+
+In order to switch the current prefixell version to another one in folder,use above command and find one, then use `prefixell pkg switch <prefixell_folder> -g`
 
 ## Quickstart
 
@@ -136,7 +142,7 @@ fn inc \x : (+ x 1)
 ```
 
 ### Function Application
-Functions are applied by juxtaposition(the what lmao.Search it in google):
+Functions are applied by juxtaposition(slapping bullsh*t in a line) (Here its the function and arguments):
 ```
 inc 5 ;;
 (\x y : (+ x y)) 3 4
