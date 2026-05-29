@@ -90,6 +90,28 @@ If you want to list the downloaded folders of prefixell itself, use `prefixell p
 
 In order to switch the current prefixell version to another one in folder,use above command and find one, then use `prefixell pkg switch <prefixell_folder> -g`
 
+Prefixell packages can have a `setup.lc.lua` that lets you make a global wrapper (`<name>.bat` in windows and `<name>` in *nix).
+
+To setup a local pkgs dir package with `setup.lc.lua`, run `prefixell pkg setup <pkg_name>` (add `-g` at end if it is in the global pkgs dir).
+
+Then you can run it just by typing `<pkg_name>` in terminal.
+
+The wrapper lives in `USERPROFILE` in windows and `$HOME/.local/bin` in *nix.
+
+To add a `setup.lc.lua` in your project, run `prefixell pkg setup-init` and give the required data.
+
+example `setup.lc.lua`:
+```lua
+return {
+  name = "name", -- name of project (its obvious, this comment is useless)
+  entry = "main.lua", -- SHOULD be a lua files
+  env_vars = { -- env variables you might want to add
+    PREFIXELL_LUA = "lua", -- this is added if you made it with setup-init, It is the name of the lua ver in the DEVS MACHINE SO PLEASE DON'T USE IT
+    VAR_NAME = "AMOGUS" -- another var
+  }
+}
+```
+
 ## Quickstart
 
 Let's write a Hello, World! program:
@@ -287,8 +309,8 @@ If you ever wanted to automate compiling multiple files, IN A JOKE LANGUAGE,ther
 
 First, create a `cfg.lc.lua` file in your project with `prefixell init` and type the name of entry file.
 
+example `cfg.lc.lua`:
 ```lua
--- example config format
 return {
   entry = "main.lc", -- the name of your main file
   dep_list = { -- dependencies

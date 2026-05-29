@@ -101,7 +101,7 @@ elseif arg[1] == "build" then
     local function build_file(file, is_entry)
       is_entry = is_entry or false
       if seen[file] then return end
-      if building[file] then error("Circular dependency: " .. file) end
+      if building[file] then print("Circular dependency: " .. file) os.exit(1) end
       building[file] = true
       local out_path = get_output_path(file)
       local f_lc, open_err = io.open(file, "r")
@@ -196,7 +196,7 @@ elseif arg[1] == "pkg" then
     end
   elseif action == "sync" then
     local cfg_func = loadfile("cfg.lc.lua")
-    if not cfg_func then print("cfg.lc.lua not found.") os.exit(1) end
+    if not cfg_func then print("cfg.lc.lua not found") os.exit(1) end
     local cfg = cfg_func()
     if cfg.pkgs then
       if cfg.pkgs.add then for _, p in ipairs(cfg.pkgs.add) do local url, branch = parse_url(p); download_pkg(url, branch,true,nil) end end
@@ -207,7 +207,7 @@ elseif arg[1] == "pkg" then
       local id = os.time("%m%d-%H%M%S"); local pref_dir = (pkgs_dir..sep.."prefixell-self"..sep..id):gsub("[\\/]+",(is_windows and "\\") or "/")
       local n = download_pkg("https://github.com/TBApknoob12MC/prefixell",nil,false,pref_dir)
       local i_cmd = (is_windows and 'cd /d "'..pref_dir..'" && "'..(os.getenv("PREFIXELL_LUA") or "lua")..'" install.lua '..id) or "cd \""..pref_dir.."\" && "..(os.getenv("PREFIXELL_LUA") or "lua").." install.lua "..id
-      print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") else print("Successfully installed") end
+      print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") else print("Successfully installed\nprevious: "..os.getenv("PREFIXELL_ID").."\ncurrent: "..id) end
     else print("use with -g flag: ' prefixell pkg self-up -g '") end
   elseif action == "list-self" then if is_global then if not os.execute(is_windows and "dir "..pkgs_dir..sep.."prefixell-self" or "ls "..pkgs_dir..sep.."prefixell-self") then print("something wrong happened while using '"..(is_windows and "dir" or "ls").."'") end else print("use with -g flag: ' prefixell pkg list-self -g '") end print("current prefixell: "..os.getenv("PREFIXELL_ID"))
   elseif action == "switch" then
@@ -218,6 +218,38 @@ elseif arg[1] == "pkg" then
       local i_cmd = (is_windows and 'cd /d "'..pref_dir..'" && "'..(os.getenv("PREFIXELL_LUA") or "lua")..'" install.lua '..arg[3]) or "cd \""..pref_dir.."\" && "..(os.getenv("PREFIXELL_LUA") or "lua").." install.lua "..arg[3]
       print("Running: "..i_cmd) ; if not os.execute(i_cmd) then print("something wrong happened\ncopy the command and run it manually") else print("Successfully switched from "..os.getenv("PREFIXELL_ID").." to "..arg[3]) end
     else print("use with -g flag: ' prefixell pkg switch <prefixell_folder> -g '") end
+  elseif action == "setup" then
+    if not arg[3] then print("package name not specified\nusage: prefixell pkg setup <pkg_name> [-g : optional] ") os.exit(1) end; local target = pkgs_dir..sep..arg[3]
+    local setup_func = loadfile(target..sep.."setup.lc.lua")
+    if not setup_func then print("setup.lc.lua not found in package "..arg[3].." at: "..target) end
+    local setup = setup_func()
+    print(string.format("setting up package %s with entry file '%s'",setup.name,setup.entry))
+    print("env_vars:"); local env_str_win,env_str_posix = "",""; for k,v in pairs(setup.env_vars) do print(string.format("%s = %q",k,v)); env_str_win,env_str_posix = env_str_win..string.format("set \"%s=%s\"& ",k,v), env_str_posix..string.format("%s=\"%s\" ",k,v) end
+    io.write("continue (y/n): ") io.flush(); if io.read():sub(1,1):lower() ~= "y" then os.exit(1) end
+    local bin_dir = is_windows and os.getenv("USERPROFILE") or os.getenv("HOME").."/.local/bin"
+    if is_windows then
+      local f = io.open(bin_dir..sep..setup.name..".bat","w")
+      if f then f:write(string.format("@echo off\n%s \"%s\" \"%s\" %%*",env_str_win,os.getenv("PREFIXELL_LUA"),target..sep..setup.entry)) f:close() else print("could not write wrapper to "..bin_dir..sep..setup.name..".bat") os.exit(1) end
+    else
+      local f = io.open(bin_dir..sep..setup.name,"w")
+      if f then f:write(string.format("#!/bin/sh\n%s %s \"%s\" \"$@\"",env_str_posix,os.getenv("PREFIXELL_LUA"),target..sep..setup.entry)) f:close() os.execute("chmod +x '"..bin_dir..sep..setup.name.."'") else print("could not write wrapper to "..bin_dir..sep..setup.name) os.exit(1) end
+    end
+    print("setup for "..setup.name.." completed")
+  elseif action == "setup-init" then
+    io.write("Name of pkg (type main for default): ") io.flush(); local pkg_name = io.read()
+    io.write("Name of entry file (type main.lua for default): ") io.flush(); local pkg_entry = io.read()
+    io.write("setup file:\nname: "..pkg_name.."\nentry: "..pkg_entry.."\nConfirm (y/n): ") io.flush(); local confirm = io.read():sub(1,1):lower() == "y"
+    if not confirm then print("Cancelling setup-init") os.exit(1) end
+    local setup = io.open("setup.lc.lua","w")
+    setup:write([[
+return {
+  name = "]]..pkg_name..[[",
+  entry = "]]..pkg_entry..[[",
+  env_vars = {
+    PREFIXELL_LUA = "]]..os.getenv("PREFIXELL_LUA")..[["
+  }
+}]])
+    setup:close()
   else
 print([[
 prefixell package manager
@@ -229,6 +261,8 @@ Actions:
   add  <id>[@branch: optional] -> Download and build if it's a prefixell project
   dl   <id>[@branch: optional] -> Download only (no build)
   sync -> Download/build packages defined in cfg.lc.lua
+  setup -> create a global wrapper for a global or local package
+  setup-init -> create a setup.lc.lua in current folder
   self-up -g -> update prefixell itself
   list-self -g -> list downloaded prefixell folders
   switch <prefixell_folder> -g -> switch to another prefixell folder
@@ -240,8 +274,8 @@ Identifiers (<id>):
 ]])
   end
 elseif arg[1] == "init" then
-  print("Name of entry file (type main.lc for default): "); local entry = io.read()
-  print("config:\nentry file: "..entry.."\nConfirm (y/n): "); local confirm = io.read():sub(1,1):lower() == "y"
+  io.write("Name of entry file (type main.lc for default): ") io.flush(); local entry = io.read()
+  io.write("config:\nentry file: "..entry.."\nConfirm (y/n): ") io.flush(); local confirm = io.read():sub(1,1):lower() == "y"
   if not confirm then print("Cancelling init") os.exit(1) end
   local cfg = io.open("cfg.lc.lua","w")
   cfg:write([[
@@ -261,6 +295,7 @@ else
 prefixell cli:
   c <input.lc> <output.lua> -> compile source to lua
   r <optional_entry.lc> -> read-eval-print-loop
+  init -> create a cfg.lc.lua in current folder
   build <target: optional> -> build the project based on cfg.lc.lua,or run the given target
   pkg <add|dl|sync> -> prefixell package manager]])
 end
