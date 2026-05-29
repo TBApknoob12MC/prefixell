@@ -335,10 +335,14 @@ return {
   targets = { -- targets
     run = {
     prerun = {"clean","build"}, -- runs other targets before running this target
-    "lua main.lua"
+    common = {"lua main.lua"} -- runs on both windows and *nix
     },
-    build = {"lua prefixell.lua build"},
-    clean = {"rm dep1dep1.lua dep1dep2.lua dep1.lua dep2.lua main.lua"}
+    build = {common = {"lua prefixell.lua build"}},
+    clean = {common = {"rm dep1dep1.lua dep1dep2.lua dep1.lua dep2.lua main.lua"}},
+    another_target = {
+      win = {"dir"},
+      posix = {"ls"}
+    }
   }
 }
 ```

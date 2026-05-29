@@ -87,7 +87,7 @@ elseif arg[1] == "build" then
     local t = cfg.targets[target_name]
     if not t then return end
     if t.prerun then for _, pre in ipairs(t.prerun) do run_target(pre) end end
-    for _, cmd in ipairs(t) do
+    for _, cmd in ipairs(t.common or (is_windows and t.win or t.posix)) do
       if type(cmd) == "string" then
         print("Running: " .. cmd)
         local success = os.execute(cmd)
@@ -95,7 +95,7 @@ elseif arg[1] == "build" then
       end
     end
   end
-  if target and cfg.targets and cfg.targets[target] then run_target(target)
+  if target and cfg.targets and cfg.targets[target] and (is_windows and cfg.targets[target].win or cfg.targets[target].posix) then run_target(target)
   else
     local seen, building = {}, {}
     local function build_file(file, is_entry)
