@@ -70,14 +70,14 @@ In the REPL, you can:
 
 ### Package Manager
 
-To install a package to `pkgs` folder + build if it has a `cfg.lc.lua` file:
+To install a package to `pkgs` folder + build if it has a `cfg.lc.lua` file + make global wrapper if it has a `setup.lc.lua` file:
 ```bash
 prefixell pkg add provider_shorthand:user/repo@branch
 ```
 
 Here, the available provider shorthands are: gh(github), gl(gitlab), and cb(codeberg). Giving a branch is optional.
 
-The same goes for `pkg dl`, if you don't want for the package to be built automatically (for non-prefixell pkgs: lua projects etc.)
+The same goes for `pkg dl`, if you don't want for the package to be built automatically or don't want to make a global wrapper:
 ```bash
 prefixell pkg dl provider_shorthand:user/repo@branch
 ```
@@ -164,7 +164,7 @@ fn inc \x : (+ x 1)
 ```
 
 ### Function Application
-Functions are applied by juxtaposition(slapping bullsh*t in a line) (Here its the function and arguments):
+Functions are applied by juxtaposition (slapping bullsh*t in a line) (Here its the function and arguments):
 ```
 inc 5 ;;
 (\x y : (+ x y)) 3 4

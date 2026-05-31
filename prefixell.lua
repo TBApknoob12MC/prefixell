@@ -165,9 +165,15 @@ elseif arg[1] == "pkg" then
       print("Successfully downloaded: " .. name)
       if should_build and io.open(target .. "/cfg.lc.lua", "r") then
         print("Prefixell project detected. Building...")
-        print("Build package " .. name .. "? (y/n)")
+        io.write("Build package " .. name .. " (y/n)? ") io.flush()
         if io.read():sub(1,1):lower() ~= "y" then return end
-        os.execute("cd '" .. target .. "' && prefixell build")
+        os.execute("cd '" .. target .. "' && prefixell pkg sync && prefixell build")
+      end
+      if should_build and io.open(target.. "/setup.lc.lua","r") then
+        print("setup.lc.lua found.")
+        io.write("Start setup for "..name.." (y/n)? ") io.flush()
+        if io.read():sub(1,1):lower() ~= "y" then return end
+        os.execute("prefixell pkg setup "..name)
       end
       return name
     else
@@ -258,7 +264,7 @@ Options:
   -g or --global -> Use global directory (]] .. global_pkgs_dir .. [[)
   -p or --prevent-add -> prevent auto insert of package data into cfg.lc.lua in pkg add or pkg dl
 Actions:
-  add  <id>[@branch: optional] -> Download and build if it's a prefixell project
+  add  <id>[@branch: optional] -> Download and build if it's a prefixell project, make global wrapper if setup file found
   dl   <id>[@branch: optional] -> Download only (no build)
   sync -> Download/build packages defined in cfg.lc.lua
   setup -> create a global wrapper for a global or local package
