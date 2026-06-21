@@ -311,6 +311,7 @@ First, create a `cfg.lc.lua` file in your project with `prefixell init` and type
 
 example `cfg.lc.lua`:
 ```lua
+loadfile("pkg.lc.lua")()
 return {
   entry = "main.lc", -- the name of your main file
   dep_list = { -- dependencies
@@ -323,15 +324,7 @@ return {
   outputs = { -- specify output name mapping. otherwise, file.lc -> file.lua 
     ["dep2.lc"] = "newname.lua"
   },
-  pkgs = { -- packages that will be installed when pkg sync is done
-    add = { -- prefixell packages that will automatically be built if cfg.lc.lua found
-      "gh:usr/repo",
-      "gl:user/repository@dev"
-    },
-    dl = { -- packages that will just be downloaded - non-prefixell (lua etc.) pkgs go here
-      "cb:cool-guy/random-lua-proj"
-    }
-  }
+  pkgs = pkg_tbl,
   targets = { -- targets
     run = {
     prerun = {"clean","build"}, -- runs other targets before running this target
@@ -345,6 +338,14 @@ return {
     }
   }
 }
+```
+
+example `pkg.lc.lua` file:
+```lua
+pkg_tbl = { add = {}, dl = {}}
+table.insert(pkg_tbl.add,"gh:usr/repo") -- prefixell packages that will automatically be built if cfg.lc.lua found goes in add
+table.insert(pkg_tbl.add,"gl:user/reposotory@dev")
+table.insert(pkg_tbl.dl,"cb:coolguy/random-lua-proj")  -- packages that will just be downloaded - non-prefixell (lua etc.) pkgs goes in dl
 ```
 
 now if you run `prefixell build`, it will compile deeper deps first, and finally the entry file.

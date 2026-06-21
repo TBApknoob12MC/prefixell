@@ -187,18 +187,15 @@ elseif arg[1] == "pkg" then
     local url, branch = parse_url(pkg_path)
     local name = download_pkg(url, branch,action == "add",nil)
     if name and add_to_cfg and not is_global then
-      local f = io.open("cfg.lc.lua","r")
-      if f then 
-        local content = f:read("*a"); f:close()
-        local target_key = (action == "add") and "add" or "dl"
-        if not content:find(string.format("%q",pkg_path)) then
-          local nc,count = content:gsub(target_key.."%s*=%s*{",target_key.."= { "..string.format("%q",pkg_path)..", ")
-          if count > 0 then
-            local out = io.open("cfg.lc.lua","w"); out:write(nc); out:close()
-            print("Added '" .. pkg_path .. "' to cfg.lc.lua (" .. target_key .. ")")
-          else print("Warning: Could not automatically update cfg.lc.lua (table not found).") end
-        else print("Note: Package already exists in cfg.lc.lua.") end
-      end
+      local cfg_func = loadfile("cfg.lc.lua")
+      if not cfg_func then print("cfg.lc.lua not found") os.exit(1) end
+      local cfg = cfg_func()
+      local target_key = (action == "add") and "add" or "dl"
+      if cfg.pkgs[target_key][name] then print(name.." already in cfg") os.exit(1) end
+      local pkg_file = io.open("pkg.lc.lua","a")
+      if not pkg_file then print("pkg.lc.lua not found") os.exit(1) end
+      pkg_file:write("\ntable.insert(pkg_tbl."..target_key..",\""..pkg_path.."\")") pkg_file:close()
+      print("added "..name.." to config")
     end
   elseif action == "sync" then
     local cfg_func = loadfile("cfg.lc.lua")
@@ -283,19 +280,18 @@ elseif arg[1] == "init" then
   io.write("Name of entry file (type main.lc for default): ") io.flush(); local entry = io.read()
   io.write("config:\nentry file: "..entry.."\nConfirm (y/n): ") io.flush(); local confirm = io.read():sub(1,1):lower() == "y"
   if not confirm then print("Cancelling init") os.exit(1) end
-  local cfg = io.open("cfg.lc.lua","w")
+  local cfg,pkgf = io.open("cfg.lc.lua","w"), io.open("pkg.lc.lua","w")
   cfg:write([[
+loadfile("pkg.lc.lua")()
 return {
   entry = "]]..(entry or "main.lc" )..[[",
   dep_list = {},
-  outputs = {},
-  pkgs = { 
-    add = {},
-    dl = {}
-  },
+  pkgs = pkg_tbl,
   targets = {}
 }]])
-  cfg:close()
+pkgf:write([[
+pkg_tbl = {add = {}, dl = {}}]])
+  cfg:close() pkgf:close()
 else
   print([[
 prefixell cli:
